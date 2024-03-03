@@ -1,0 +1,113 @@
+import matplotlib.pyplot as plt
+
+import pulp
+
+# Sample data: Motor vehicle flow and local authority names
+motor_vehicle_flow = {
+    'Barking and Dagenham':	4850, 
+    'Barnet' : 5795,
+    'Bexley' : 4794,
+    'Brent' : 5405, 
+    'Bromley' : 4145,
+    'Camden' : 4278, 
+    'City of London' : 6328, 
+    'Croydon' : 4532, 
+    'Ealing' : 5853,
+    'Enfield' : 6903,
+    'Greenwich'	: 6213, 
+    'Hackney' : 4422, 
+    'Hammersmith and Fulham' : 5793,
+    'Haringey' : 3908, 
+    'Harrow' : 3489,
+    'Havering' : 7078,
+    'Hillingdon' : 8012,
+    'Hounslow' : 8155, 
+    'Islington' : 4041,
+    'Kensington and Chelsea' : 6190,
+    'Kingston upon Thames' : 7446, 
+    'Lambeth' : 5129, 
+    'Lewisham' : 4378, 
+    'Merton' : 4475, 
+    'Newham' : 5340, 
+    'Redbridge'	: 5708, 
+    'Richmond upon Thames' : 5213, 
+    'Southwark'	: 4710, 
+    'Sutton' : 4381, 
+    'Tower Hamlets'	: 7690,
+    'Waltham Forest' : 4970, 
+    'Wandsworth' : 4579, 
+    'Westminster' : 5630,
+    # Add more local authorities and their corresponding flows here
+}
+
+# Total number of charger stations to distribute
+total_charger_stations = 1500
+
+# Calculate the total vehicle flow
+total_vehicle_flow = sum(motor_vehicle_flow.values())
+
+# Calculate the weight of each authority
+weights = {authority: flow / total_vehicle_flow for authority, flow in motor_vehicle_flow.items()}
+print("Weights:", weights)
+
+# Create a binary variable for each local authority indicating whether it gets a charger station
+charger_vars = pulp.LpVariable.dicts("Charger", motor_vehicle_flow.keys(), lowBound=20, upBound=90, cat='Integer')
+print("Charger variables:", charger_vars)
+
+# Create the optimization problem
+prob = pulp.LpProblem("Charger_Stations_Distribution", pulp.LpMaximize)
+print("Optimization problem:", prob)
+
+# Calculate the maximum and minimum weights
+max_weight = max(weights.values())
+min_weight = min(weights.values())
+
+# Calculate the total weight difference
+total_weight_difference = sum(max_weight - weight for weight in weights.values())
+
+# Calculate the number of charger stations to be allocated per unit of weight difference
+charger_per_unit_weight = total_charger_stations / total_weight_difference
+
+# Distribute charger stations proportionally based on weight difference
+for authority, weight in weights.items():
+    charger_vars[authority].upBound = max(5, charger_vars[authority].lowBound + (weight - min_weight) * charger_per_unit_weight)
+
+# Objective: Maximize the overall service provided by charger stations
+prob += pulp.lpSum(charger_vars[authority] * weights[authority] for authority in motor_vehicle_flow.keys())
+
+# Constraint: The total number of charger stations distributed should be equal to the total available
+prob += pulp.lpSum(charger_vars.values()) <= total_charger_stations
+
+# Solve the optimization problem
+prob.solve()
+
+# Calculate the total number of charger stations distributed
+total_charger_stations_distributed = sum(var.varValue for var in charger_vars.values())
+
+# Print the results
+print("Optimization Status:", pulp.LpStatus[prob.status])
+for authority, var in charger_vars.items():
+    print(authority, "=", var.varValue)
+
+print("Total Charger Stations Distributed:", total_charger_stations_distributed)
+print("Value of service:", pulp.value(prob.objective))
+
+
+# Extract the names of each authority
+x_labels = list(motor_vehicle_flow.keys())
+y_coords = [var.varValue for var in charger_vars.values()]
+
+# Plot the 2D scatter plot
+plt.figure(figsize=(20, 5)) 
+plt.scatter(range(len(x_labels)), y_coords, c='b', marker='o')
+
+# Set x-axis tick labels
+plt.xticks(range(len(x_labels)), x_labels, rotation='vertical')
+
+# Set labels and title
+plt.xlabel('Local Authority')
+plt.ylabel('Charger Stations')
+plt.title('2D Scatter Plot of 1500 Charger Station Distribution')
+plt.subplots_adjust(bottom=0.25)
+
+plt.show()
