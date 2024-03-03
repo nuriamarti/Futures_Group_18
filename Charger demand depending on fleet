@@ -1,0 +1,52 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+
+# Define custom colors for the colormap
+colors = ['#81BFBB', '#546A69']  # Blue and red colors
+
+# Create a custom colormap
+custom_cmap = ListedColormap(colors)
+
+# Define ranges for x1 and x2
+x1_range = np.arange(10, 350, 5)  # Number of charging points, assuming step size of 10
+x2_range = np.arange(0, 16000, 100)  # Taxi fleet number, assuming step size of 100
+
+# Initialize matrices to store results
+X1, X2 = np.meshgrid(x1_range, x2_range)
+Y = np.zeros_like(X1)
+
+# Operational parameters
+average_daily_mileage_optimal = 191.5  # miles
+average_speed = 7.97  # miles per hour (taken from taxi driver data, extrapolating to 24h workday = 191.5 miles)
+
+# Determine the energy consumption per mile (taken from battery research)
+energy_usage_per_mile_kWh = 0.42 # kWh
+
+# Determine the wwireless charging speed
+charging_speed = 150 #kW
+
+# Loop through combinations of x1 and x2
+for i in range(X1.shape[0]):
+    for j in range(X2.shape[1]):
+        # Simulate energy consumption for the entire fleet in 24h
+        simulated_energy_consumption = np.random.normal(energy_usage_per_mile_kWh * average_daily_mileage_optimal, 10, int(X2[i, j]))
+
+        # Calculate total energy consumption for the fleet in 24h
+        total_energy_consumption_kWh = np.sum(simulated_energy_consumption)
+
+        # Check if the charging network can support the fleet
+        charging_capacity_kWh = X1[i, j] * charging_speed * 24
+
+        # Check if the charging network is sufficient
+        Y[i, j] = charging_capacity_kWh >= total_energy_consumption_kWh
+
+# Display results as a 2D heatmap with custom colors
+plt.figure(figsize=(10, 6))
+plt.imshow(Y, extent=[x1_range.min(), x1_range.max(), x2_range.min(), x2_range.max()], aspect='auto', cmap=custom_cmap, origin='lower')
+plt.colorbar(label='Charging Network Sufficient', ticks=[0, 1])
+plt.xlabel('Number of Charging Points')
+plt.ylabel('Taxi Fleet Number')
+plt.title('2D Heatmap of Charging Network Sufficiency')
+plt.grid(visible=True, linestyle='--', linewidth=0.5, color='gray')
+plt.show()
